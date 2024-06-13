@@ -1,50 +1,54 @@
-  import 'dart:convert';
-  import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-  class PostMod {
-    String namaMakanan;
-    String deskripsi;
-    String cuaca;
-    String linkGambar; 
+class PostMod {
+  final int id;
+  final String namaMakanan;
+  final String? deskripsi; // Allow deskripsi to be nullable
+  final String cuaca;
+  final String linkGambar;
 
-    PostMod({
-      this.namaMakanan = '',
-      this.deskripsi = '',
-      this.cuaca = '',
-      this.linkGambar = '', 
-    });
+  PostMod({
+    required this.id,
+    required this.namaMakanan,
+    required this.deskripsi,
+    required this.cuaca,
+    required this.linkGambar,
+  });
 
-    factory PostMod.createPostMod(Map<String, dynamic> object) {
-      return PostMod(
-        namaMakanan: object['nama_makanan'] ?? '',
-        deskripsi: object['deskripsi'] ?? '',
-        cuaca: object['cuaca'] ?? '',
-        linkGambar: object['link_gambar'] ?? '',  
-      );
-    }
+  factory PostMod.fromJson(Map<String, dynamic> json) {
+    return PostMod(
+      id: json['id'],
+      namaMakanan: json['nama_makanan'],
+      deskripsi: json['deskripsi'] ??
+          '', // Provide a default value if deskripsi is null
+      cuaca: json['cuaca'],
+      linkGambar: json['link_gambar'],
+    );
+  }
 
-    static Future<PostMod> connectToAPI() async {
+  static Future<List<PostMod>> connectToAPI() async {
+    final response = await http.get(Uri.parse('http://localhost:8000/api.php'));
+
+    print('Response status: ${response.statusCode}');
+    print('Response body: ${response.body}');
+
+    if (response.statusCode == 200) {
       try {
-        Uri apiURL = Uri.parse("http://localhost:8000/api.php");
-        var apiResult = await http.get(apiURL);
-
-        if (apiResult.statusCode == 200) {
-          var jsonObject = json.decode(apiResult.body);
-
-          if (jsonObject['status'] == 'success' &&
-              jsonObject['data'] != null &&
-              jsonObject['data'].isNotEmpty) {
-            return PostMod.createPostMod(jsonObject['data'][0]);
-          }
+        // Check if the response is JSON
+        if (response.headers['content-type']?.contains('application/json') ==
+            true) {
+          Map<String, dynamic> jsonResponse = json.decode(response.body);
+          List<dynamic> dataList = jsonResponse['data'];
+          return dataList.map((data) => PostMod.fromJson(data)).toList();
+        } else {
+          throw Exception('Received non-JSON response');
         }
-        throw Exception('Failed to fetch data from API');
       } catch (e) {
-        throw Exception('Failed to connect to API: $e');
+        throw Exception('Failed to parse JSON: $e');
       }
-    }
-
-    
-    static Future<http.Response> fetchImage(String imageUrl) async {
-      return await http.get(Uri.parse(imageUrl));
+    } else {
+      throw Exception('Failed to load data: ${response.statusCode}');
     }
   }
+}
